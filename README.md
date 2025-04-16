@@ -81,6 +81,18 @@ Na niej integrowane są wszystkie zmiany przed scalenie ich do głównej gałęz
 **Moduł GUI (opcjonalnie):**
     Prosty interfejs graficzny oparty na Tkinter (lub innym frameworku), który umożliwia uruchomienie rozgrywki, wyświetlenie kart, stan żetonów oraz interakcję użytkownika.
 
+### Tagowanie wersji:
 
+Oznaczaj istotne etapy rozwoju projektu tagami, na przykład:
 
+v0.1: Wstępna implementacja funkcji generowania talii i rozdawania kart.
 
+v0.2: Dodanie logiki oceny układu kart (hand_rank) oraz klasy Player.
+
+v0.3: Implementacja operacji na plikach i zapisu logów.
+
+v0.4: Dodanie testów jednostkowych.
+
+v0.5: Rozszerzenie o interfejs GUI i/lub komunikację sieciową.
+
+v1.0: Stabilna, pełna wersja gry.
