@@ -15,8 +15,8 @@ class Deck():
     def shuffle(self):
         random.shuffle(self.cards)
 
-    def deal(self, players):
-        for i in range(5):
-            for p in players:
-                if len(self.cards) > 0:
-                    p.take_card(self.cards.pop())
+    def deal(self, players, num_cards=5):
+        for player in players:
+            for _ in range(num_cards):
+                card = self.cards.pop()
+                player.take_card(card)

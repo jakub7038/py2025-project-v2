@@ -1,5 +1,4 @@
 class Player:
-
     def __init__(self, money, name=""):
         self.__stack_ = money
         self.__name_ = name
@@ -11,11 +10,22 @@ class Player:
     def get_stack_amount(self):
         return self.__stack_
 
-    def change_card(self, card, index):
-        temp_card = card
-        card = self.__hand_[index]
-        self.__hand_[index] = temp_card
-        return card
+    def set_stack_amount(self, amount):
+        self.__stack_ = amount
+
+    def get_name(self):
+        return self.__name_
+
+    def set_name(self, name):
+        self.__name_ = name
+
+    def get_hand(self):
+        return self.__hand_
+
+    def change_card(self, card, idx):
+        old_card = self.__hand_[idx]
+        self.__hand_[idx] = card
+        return old_card
 
     def get_player_hand(self):
         return tuple(self.__hand_)
