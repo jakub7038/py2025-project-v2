@@ -19,15 +19,16 @@ class GameEngine:
             player.folded = False
 
         #1. Pobiera blindy
-        self.pot += self.players[0].pay(self.small_blind)
-        self.pot += self.players[1].pay(self.big_blind)
+        for player in self.players:
+            self.pot += player.pay(self.small_blind)
+            self.pot += player.pay(self.big_blind) # kto ma brać blindy??
 
         #2. Rozdaje karty
         self.deck.shuffle()
         self.deck.deal(self.players, 5)
 
         #3. Rundę zakładów
-        current_bet = self.big_blind
+        current_bet = self.big_blind * len(self.players)  # Nowa logika stawek
         active_players = [p for p in self.players if not p.folded]
         self.handle_betting_round(active_players, current_bet)
 
