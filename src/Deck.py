@@ -20,3 +20,11 @@ class Deck():
             for _ in range(num_cards):
                 card = self.cards.pop()
                 player.take_card(card)
+
+    def draw(self):
+        if not self.cards:
+            raise ValueError("Deck is empty")
+        return self.cards.pop(0)
+
+    def discard_to_bottom(self, card):
+        self.cards.append(card)

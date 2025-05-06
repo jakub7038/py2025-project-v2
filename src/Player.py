@@ -1,8 +1,11 @@
+from exceptions import InsufficientFundsError
+
 class Player:
     def __init__(self, money, name=""):
         self.__stack_ = money
         self.__name_ = name
         self.__hand_ = []
+        self.folded = False
 
     def take_card(self, card):
         self.__hand_.append(card)
@@ -32,3 +35,12 @@ class Player:
 
     def cards_to_str(self):
         return ', '.join(str(card) for card in self.__hand_)
+
+    def pay(self, amount):
+        if self.__stack_ < amount:
+            raise InsufficientFundsError()
+        self.__stack_ -= amount
+        return amount
+
+    def is_human(self):
+        return self.__name_ != ""
