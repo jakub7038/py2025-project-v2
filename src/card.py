@@ -6,7 +6,7 @@ class Card:
         self.suit = suit
 
     def get_value(self):
-        return (self.rank, self.suit)
+        return self.rank, self.suit
 
     def __str__(self):
         return f"{self.rank} {Card.unicode_dict[self.suit]}"

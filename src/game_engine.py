@@ -1,10 +1,11 @@
-from typing import List, Tuple
+from typing import List
 import random
-from Card import Card
-from Deck import Deck
-from Player import Player
+from card import Card
+from deck import Deck
+from player import Player
 import exceptions
-
+import utils
+#TODO: check issue with betting that is never 0 because of blinds
 
 class GameEngine:
     def __init__(self, players: List[Player], deck: Deck, small_blind: int = 25, big_blind: int = 50):
@@ -16,9 +17,7 @@ class GameEngine:
         self.current_bet = 0
 
     def play_round(self) -> None:
-        for player in self.players:
-            player.folded = False
-            player.current_bet = 0
+        self._reset_round()
 
         #1. Pobiera blindy
         self._post_blinds()
@@ -28,11 +27,12 @@ class GameEngine:
         self.deck.deal(self.players, 5)
 
         #3. Rundę zakładów
-        self._handle_betting_round()
+        self.betting_round()
 
         #4. Wymianę kart
         active_players = [p for p in self.players if not p.folded]
-        self._handle_card_exchange(active_players)
+        if len(active_players) > 1:
+            self._handle_card_exchange(active_players)
 
         #5. Showdown i przyznanie puli
         winner = self._showdown()
@@ -42,13 +42,23 @@ class GameEngine:
         self.pot = 0
         print(f"Zwycięzca: {winner.get_name()}, otrzymuje {pot_amount} żetonów")
 
-    def _post_blinds(self):
-        if len(self.players) >= 2:
-            self.pot += self.players[0].pay(self.small_blind)
-            self.pot += self.players[1].pay(self.big_blind)
-            self.current_bet = self.big_blind
+    def _reset_round(self):
+        for player in self.players:
+            player.folded = False
+            player.current_bet = 0
+            player.reset_hand()
+        self.deck = Deck()
+        self.pot = 0
+        self.current_bet = 0
 
-    def _handle_betting_round(self):
+    def _post_blinds(self):
+        for player in self.players:
+            blind = random.choice([self.small_blind, self.big_blind])
+            money = player.pay(blind)
+            self.pot += money
+            self.current_bet += player.pay(blind)
+
+    def betting_round(self):
         active_players = [p for p in self.players if not p.folded]
         last_raiser = -1
         index = 0
@@ -56,7 +66,7 @@ class GameEngine:
 
         while True:
             player = active_players[index]
-
+            player.validate_hand()
             print(f"\n=== Tura gracza: {player.get_name()} ===")
             print(f"Żetony w puli: {self.pot}")
             print(f"Aktualna stawka: {self.current_bet}")
@@ -64,6 +74,9 @@ class GameEngine:
             if player.folded:
                 print(f"{player.get_name()} spasował")
                 index = (index + 1) % len(active_players)
+                for card in player.get_player_hand():
+                    self.deck.discard_to_bottom(card)
+                player.set_hand([])
                 continue
 
             required = self.current_bet - player.current_bet
@@ -73,10 +86,12 @@ class GameEngine:
                 if action == "fold":
                     print(f"{player.get_name()} spasował")
                     player.folded = True
+
                 elif action == "call":
                     print(f"{player.get_name()} wyrównuje stawkę {required}")
                     self.pot += player.pay(required)
                     player.current_bet += required
+
                 elif action == "raise":
                     raise_amount = max(required + self.big_blind, self.big_blind)
                     print(f"{player.get_name()} podbija o {raise_amount}")
@@ -91,6 +106,7 @@ class GameEngine:
                 player.folded = True
 
             active_players = [p for p in active_players if not p.folded]
+
             if len(active_players) < 2:
                 break
 
@@ -103,14 +119,27 @@ class GameEngine:
     def _prompt_bet(self, player: Player, required: int) -> str:
         if player.is_human():
             print(f"\nAktualna stawka: {self.current_bet}, Do wyrównania: {required}")
-            print(f"Twoje żetony: {player.get_stack_amount()}")
-            print("Twoje karty:", player.cards_to_str())
+            print(f"{player.get_name()} żetony: {player.get_stack_amount()}")
+            print(f"{player.get_name()} karty:", player.cards_to_str())
 
             while True:
-                action = input("Wybierz akcję (fold/call/raise): ").strip().lower()
-                if action in {"fold", "call", "raise"}:
+                action = input(f"{player.get_name()} wybierz akcję (fold/check/call/raise): ")
+                if action in  {"fold", "raise"}:
                     return action
-                print("Nieprawidłowa akcja. Dopuszczalne opcje: fold/call/raise")
+                elif action == "check":
+                    if self.current_bet == 0:
+                        return "check"
+                    else:
+                        print("Nie możesz czekać, gdy ktoś już postawił!")
+
+                elif action == "call":
+                    if self.current_bet > 0:
+                        return "call"
+                    else:
+                        print("Nie możesz wyrównać  gdy stawka wynosi 0!")
+
+                else:
+                    print("Nieprawidłowa akcja. Dopuszczalne opcje: fold, check, call, raise.")
         else:
             return self._bot_decide_action(player, required)
 
@@ -133,32 +162,37 @@ class GameEngine:
     def _handle_card_exchange(self, players: List[Player]):
         for player in players:
             try:
+                print(f"\n{player.get_name()} Twoje karty:", player.cards_to_str())
+
                 if player.is_human():
-                    print("\nTwoje karty:", player.cards_to_str())
                     indices = list(
                         map(int, input("Podaj indeksy kart do wymiany (0-4, oddzielone spacjami): ").split()))
                 else:
                     hand_ranks = [card.rank for card in player.get_player_hand()]
-                    bad_cards = [i for i, rank in enumerate(hand_ranks) if rank < 8]
-                    indices = random.sample(bad_cards, min(len(bad_cards), random.randint(0, 2)))
+                    numeric_ranks = utils.ranks_to_int(hand_ranks)
+                    ex_cards = [i for i, rank in enumerate(numeric_ranks) if rank < 8]
+                    indices = random.sample(ex_cards, min(len(ex_cards), random.randint(0, 2)))
 
-                for idx in indices:
-                    new_card = self.deck.draw()
-                    old_card = player.change_card(new_card, idx)
-                    self.deck.discard_to_bottom(old_card)
+                exchanged_cards = self.exchange_cards(player.get_hand(), indices)
+
+                player.set_hand(exchanged_cards)
 
             except (ValueError, IndexError) as e:
-                print(f"Invalid exchange: {e}. No cards changed.")
+                print(f"Niedozwolona wymiana: {e}. Nie wymieniono żadnych kart.")
 
-    def _exchange_cards(self, hand: List[Card], indices: List[int]) -> List[Card]:
-        if any(not 0 <= idx < 5 for idx in indices):
-            raise IndexError("Nieprawidłowy indeks karty (dopuszczalne 0-4)")
+    def exchange_cards(self, hand: List[Card], indices: List[int]) -> List[Card]:
+        new_hand = hand[:]
+        old_cards = []
 
-        new_hand = hand.copy()
-        for idx in sorted(indices, reverse=True):
-            old_card = new_hand.pop(idx)
+        for idx in indices:
+            old_card = new_hand[idx]
+            new_card = self.deck.draw()
+            new_hand[idx] = new_card
+            old_cards.append(old_card)
+
+        for old_card in old_cards:
             self.deck.discard_to_bottom(old_card)
-            new_hand.insert(idx, self.deck.draw())
+
         return new_hand
 
     def _showdown(self) -> Player:
@@ -169,54 +203,6 @@ class GameEngine:
         if len(active_players) == 1:
             return active_players[0]
 
-        rankings = [(self._evaluate_hand(p.get_player_hand()), p) for p in active_players]
+        rankings = [(utils.evaluate_hand(p.get_player_hand()), p) for p in active_players]
         rankings.sort(reverse=True, key=lambda x: x[0])
         return rankings[0][1]
-
-    @staticmethod
-    def _evaluate_hand(hand: List[Card]) -> Tuple[int, List[int]]:
-        ranks = sorted([c.rank for c in hand], reverse=True)
-        suits = [c.suit for c in hand]
-        rank_counts = {}
-        for r in ranks:
-            rank_counts[r] = rank_counts.get(r, 0) + 1
-        count_values = sorted(rank_counts.values(), reverse=True)
-        unique_ranks = sorted(rank_counts.keys(), reverse=True)
-
-        flush = len(set(suits)) == 1
-
-        straight = False
-        if len(unique_ranks) == 5:
-            if ranks[0] - ranks[-1] == 4:
-                straight = True
-            elif set(ranks) == {14, 2, 3, 4, 5}:
-                straight = True
-                ranks = [5, 4, 3, 2, 1]
-
-        if straight and flush:
-            return (8, [ranks[0]])
-        if 4 in count_values:
-            four_rank = [r for r, count in rank_counts.items() if count == 4][0]
-            kicker = [r for r in ranks if r != four_rank][0]
-            return (7, [four_rank, kicker])
-        if 3 in count_values and 2 in count_values:
-            three_rank = [r for r, count in rank_counts.items() if count == 3][0]
-            pair_rank = [r for r, count in rank_counts.items() if count == 2][0]
-            return (6, [three_rank, pair_rank])
-        if flush:
-            return (5, ranks)
-        if straight:
-            return (4, [ranks[0]])
-        if 3 in count_values:
-            three_rank = [r for r, count in rank_counts.items() if count == 3][0]
-            kickers = sorted([r for r in ranks if r != three_rank], reverse=True)
-            return (3, [three_rank] + kickers)
-        if count_values.count(2) == 2:
-            pairs = sorted([r for r, count in rank_counts.items() if count == 2], reverse=True)
-            kicker = [r for r in ranks if r not in pairs][0]
-            return (2, pairs + [kicker])
-        if 2 in count_values:
-            pair_rank = [r for r, count in rank_counts.items() if count == 2][0]
-            kickers = sorted([r for r in ranks if r != pair_rank], reverse=True)
-            return (1, [pair_rank] + kickers)
-        return (0, ranks)

@@ -1,6 +1,6 @@
 import random
 
-from src.Card import Card
+from src.card import Card
 
 
 class Deck():

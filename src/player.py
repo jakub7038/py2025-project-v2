@@ -1,10 +1,11 @@
-from exceptions import InsufficientFundsError
+from exceptions import InsufficientFundsError, InvalidHandError
 
 class Player:
-    def __init__(self, money, name=""):
+    def __init__(self, money, name="", is_human = False):
         self.__stack_ = money
         self.__name_ = name
         self.__hand_ = []
+        self.__is_human_ = is_human
         self.folded = False
 
     def take_card(self, card):
@@ -28,6 +29,7 @@ class Player:
     def change_card(self, card, idx):
         old_card = self.__hand_[idx]
         self.__hand_[idx] = card
+        self.validate_hand()
         return old_card
 
     def get_player_hand(self):
@@ -43,4 +45,20 @@ class Player:
         return amount
 
     def is_human(self):
-        return self.__name_ != ""
+        return self.__is_human_
+
+    def set_hand(self, hand):
+        self.__hand_ = hand
+
+    def reset_hand(self):
+        self.__hand_ = []
+
+    def validate_hand(self):
+        if len(self.__hand_) != 5:
+            raise InvalidHandError("renka nie ma 5 kart.")
+
+        seen_cards = set()
+        for card in self.__hand_:
+            if card in seen_cards:
+                raise InvalidHandError(f"Duplikat karty: {card}")
+            seen_cards.add(card)
