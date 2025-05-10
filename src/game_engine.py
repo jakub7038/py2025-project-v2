@@ -3,9 +3,9 @@ import random
 from card import Card
 from deck import Deck
 from player import Player
-import exceptions
+from exceptions import InvalidActionError, InsufficientFundsError, GameError
 import utils
-#TODO: check issue with betting that is never 0 because of blinds
+
 
 class GameEngine:
     def __init__(self, players: List[Player], deck: Deck, small_blind: int = 25, big_blind: int = 50):
@@ -35,7 +35,7 @@ class GameEngine:
             self._handle_card_exchange(active_players)
 
         #5. Showdown i przyznanie puli
-        winner = self._showdown()
+        winner = self.showdown()
         pot_amount = self.pot
         current_stack = winner.get_stack_amount()
         winner.set_stack_amount(current_stack + pot_amount)
@@ -47,117 +47,149 @@ class GameEngine:
             player.folded = False
             player.current_bet = 0
             player.reset_hand()
+            player.last_action = None
         self.deck = Deck()
         self.pot = 0
         self.current_bet = 0
 
     def _post_blinds(self):
+        blinds = []
         for player in self.players:
             blind = random.choice([self.small_blind, self.big_blind])
             money = player.pay(blind)
             self.pot += money
-            self.current_bet += player.pay(blind)
+            player.current_bet = blind
+            blinds.append(blind)
+        self.current_bet = max(blinds) if blinds else 0
 
     def betting_round(self):
-        active_players = [p for p in self.players if not p.folded]
-        last_raiser = -1
-        index = 0
-        iterations = 0
+        active = [p for p in self.players if not p.folded]
+        if len(active) < 2:
+            print("Za mało graczy, aby kontynuować")
+            return
 
+        for p in active:
+            p.last_action = None
+
+        current_pos = 0
         while True:
-            player = active_players[index]
-            player.validate_hand()
-            print(f"\n=== Tura gracza: {player.get_name()} ===")
-            print(f"Żetony w puli: {self.pot}")
-            print(f"Aktualna stawka: {self.current_bet}")
+            active = [p for p in self.players if not p.folded]
+            if len(active) < 2:
+                print("Pozostał tylko jeden gracz, kończę rundę")
+                return
 
-            if player.folded:
-                print(f"{player.get_name()} spasował")
-                index = (index + 1) % len(active_players)
-                for card in player.get_player_hand():
-                    self.deck.discard_to_bottom(card)
-                player.set_hand([])
-                continue
+            cycle_complete = True
+            start_pos = current_pos
 
-            required = self.current_bet - player.current_bet
-            try:
-                action = self._prompt_bet(player, required)
+            for i in range(len(active)):
+                pos = (start_pos + i) % len(active)
+                player = active[pos]
+                current_bet = self.current_bet - player.current_bet
 
-                if action == "fold":
-                    print(f"{player.get_name()} spasował")
+                try:
+                    action = self.prompt_bet(player, current_bet)
+                    player.last_action = action
+                    print(f"{player.get_name()} wybrał akcję {action}")
+
+                    if action == 'fold':
+                        player.folded = True
+                        if len([p for p in self.players if not p.folded]) == 1:
+                            winner = next(p for p in self.players if not p.folded)
+                            print(f"{winner.get_name()} wygrywa domyślnie")
+                            return
+
+                    elif action == 'call':
+                        if current_bet > 0:
+                            self.pot += player.pay(current_bet)
+                            player.current_bet += current_bet
+                            print(f"Spłacono {current_bet}, łączny zakład: {player.current_bet}")
+                        else:
+                            print("Nic do wyrównania")
+                    elif action == 'check':
+                        if current_bet > 0:
+                            raise InvalidActionError("Nie można czekać przy istniejącym zakładzie")
+                        print("Czekam")
+
+                    elif action == 'raise':
+                        raise_amt = self._get_raise_amount(current_bet)
+                        total = current_bet + raise_amt
+                        self.pot += player.pay(total)
+                        player.current_bet += total
+                        self.current_bet = player.current_bet
+                        print(f"Podbito do {self.current_bet}")
+
+                        cycle_complete = False
+                        current_pos = (pos + 1) % len(active)
+                        break
+
+                except (InsufficientFundsError, InvalidActionError) as e:
+                    print(f"{e}, traktowane jako spasowanie")
                     player.folded = True
 
-                elif action == "call":
-                    print(f"{player.get_name()} wyrównuje stawkę {required}")
-                    self.pot += player.pay(required)
-                    player.current_bet += required
+            if cycle_complete:
+                unmatched = any(p.current_bet != self.current_bet for p in active)
+                all_checked = all(p.last_action == 'check' for p in active)
+                if not unmatched or all_checked:
+                    print("Runda zakładów zakończona")
+                    return
 
-                elif action == "raise":
-                    raise_amount = max(required + self.big_blind, self.big_blind)
-                    print(f"{player.get_name()} podbija o {raise_amount}")
-                    self.pot += player.pay(raise_amount)
-                    player.current_bet += raise_amount
-                    self.current_bet = player.current_bet
-                    last_raiser = index
-                    iterations = 0
+            # Reset for next cycle if a raise occurred
+            if not cycle_complete:
+                continue
 
-            except exceptions.InsufficientFundsError:
-                print(f"{player.get_name()} nie ma środków - pas")
-                player.folded = True
+    def _get_raise_amount(self, current_bet):
+        while True:
+            try:
+                amount = int(input("Kwota podbicia: "))
+            except ValueError:
+                print("Nieprawidłowa liczba, spróbuj ponownie.")
+                continue
 
-            active_players = [p for p in active_players if not p.folded]
+            min_raise = max(self.big_blind, current_bet + 1)
+            if amount < min_raise:
+                print(f"Minimalne podbicie to {min_raise}")
+                continue
 
-            if len(active_players) < 2:
-                break
+            return amount
 
-            if index == last_raiser and iterations > 0:
-                break
 
-            index = (index + 1) % len(active_players)
-            iterations += 1
-
-    def _prompt_bet(self, player: Player, required: int) -> str:
+    def prompt_bet(self, player: Player, current_bet: int) -> str:
         if player.is_human():
-            print(f"\nAktualna stawka: {self.current_bet}, Do wyrównania: {required}")
+            print(f"\nAktualna stawka: {self.current_bet}, Do wyrównania: {current_bet}")
             print(f"{player.get_name()} żetony: {player.get_stack_amount()}")
             print(f"{player.get_name()} karty:", player.cards_to_str())
 
             while True:
-                action = input(f"{player.get_name()} wybierz akcję (fold/check/call/raise): ")
-                if action in  {"fold", "raise"}:
-                    return action
-                elif action == "check":
-                    if self.current_bet == 0:
+                action = input(f"{player.get_name()} wybierz akcję (fold/check/call/raise): ").lower()
+                if action == "check":
+                    if current_bet == 0:
                         return "check"
-                    else:
-                        print("Nie możesz czekać, gdy ktoś już postawił!")
-
+                    print("Nie możesz czekać - musisz wyrównać!")
                 elif action == "call":
-                    if self.current_bet > 0:
+                    if current_bet > 0:
                         return "call"
-                    else:
-                        print("Nie możesz wyrównać  gdy stawka wynosi 0!")
-
+                    print("Nie możesz wyrównać przy zerowej stawce!")
+                elif action == "raise":
+                    return "raise"
+                elif action == "fold":
+                    return "fold"
                 else:
                     print("Nieprawidłowa akcja. Dopuszczalne opcje: fold, check, call, raise.")
         else:
-            return self._bot_decide_action(player, required)
+            return self._bot_decide_action(player, current_bet)
 
-    def _bot_decide_action(self, player: Player, required: int) -> str:
-        if required == 0:
-            return "check"
+    def _bot_decide_action(self, player: Player, current_bet: int) -> str:
+        if current_bet == 0:
+            return "check" if random.random() < 0.7 else "raise"
 
         choices = []
-        if player.get_stack_amount() >= required:
+        if player.get_stack_amount() >= current_bet:
             choices.extend(["call"] * 5)
             choices.extend(["fold"] * 3)
-        if player.get_stack_amount() >= required + self.big_blind:
+        if player.get_stack_amount() >= current_bet + self.big_blind:
             choices.extend(["raise"] * 2)
 
-        if not choices:
-            return "fold"
-
-        return random.choice(choices)
+        return random.choice(choices) if choices else "fold"
 
     def _handle_card_exchange(self, players: List[Player]):
         for player in players:
@@ -174,7 +206,6 @@ class GameEngine:
                     indices = random.sample(ex_cards, min(len(ex_cards), random.randint(0, 2)))
 
                 exchanged_cards = self.exchange_cards(player.get_hand(), indices)
-
                 player.set_hand(exchanged_cards)
 
             except (ValueError, IndexError) as e:
@@ -195,14 +226,25 @@ class GameEngine:
 
         return new_hand
 
-    def _showdown(self) -> Player:
+    def showdown(self) -> Player:
         active_players = [p for p in self.players if not p.folded]
         if not active_players:
-            raise exceptions.GameError("Brak aktywnych graczy w showdown")
+            raise GameError("Brak aktywnych graczy w showdown")
 
-        if len(active_players) == 1:
-            return active_players[0]
+        print("\n--- SHOWDOWN ---")
+        rankings = []
 
-        rankings = [(utils.evaluate_hand(p.get_player_hand()), p) for p in active_players]
-        rankings.sort(reverse=True, key=lambda x: x[0])
-        return rankings[0][1]
+        for player in active_players:
+            hand = player.get_player_hand()
+            rank_value, tiebreakers = utils.evaluate_hand(hand)
+            hand_name = utils.hand_rank_names[rank_value]
+            card_strs = [str(card) for card in hand]
+
+            print(f"{player.get_name():<15} | {hand_name:<17} | {' '.join(card_strs)}")
+
+            rankings.append((rank_value, tiebreakers, player))
+
+        rankings.sort(reverse=True, key=lambda x: (x[0], x[1]))
+
+        winning_player = rankings[0][2]
+        return winning_player

@@ -8,6 +8,7 @@ def main():
     players = [
         Player(1000, "Gracz 1", True),
         Player(1000, "Gracz pryncypał", True),
+        #Player(1000, "Gracz 2", True)
         #Player(1000, "Bot Operator")
     ]
 

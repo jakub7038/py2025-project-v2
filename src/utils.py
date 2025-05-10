@@ -8,6 +8,17 @@ def ranks_to_int(ranks_list):
     }
     return [rank_map[rank] for rank in ranks_list]
 
+hand_rank_names = {
+    8: "Straight Flush",
+    7: "Four of a Kind",
+    6: "Full House",
+    5: "Flush",
+    4: "Straight",
+    3: "Three of a Kind",
+    2: "Two Pair",
+    1: "One Pair",
+    0: "High Card"
+}
 
 def evaluate_hand(hand: List[Card]) -> Tuple[int, List[int]]:
     raw_ranks = [c.rank for c in hand]

@@ -7,6 +7,8 @@ class Player:
         self.__hand_ = []
         self.__is_human_ = is_human
         self.folded = False
+        self.current_bet = 0
+        self.last_action = None
 
     def take_card(self, card):
         self.__hand_.append(card)
@@ -52,6 +54,10 @@ class Player:
 
     def reset_hand(self):
         self.__hand_ = []
+        self.current_bet = 0
+
+    def set_last_action(self, action):
+        self.last_action = action
 
     def validate_hand(self):
         if len(self.__hand_) != 5:
