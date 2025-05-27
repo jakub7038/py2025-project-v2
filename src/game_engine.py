@@ -1,10 +1,12 @@
 from typing import List
 import random
+from datetime import datetime
 from src.card import Card
 from src.deck import Deck
 from src.player import Player
 from src.exceptions import InvalidActionError, InsufficientFundsError, GameError
 from src.utils import evaluate_hand, ranks_to_int, hand_rank_names
+from src.fileops.session_manager import SessionManager
 
 
 class GameEngine:
@@ -15,32 +17,44 @@ class GameEngine:
         self.big_blind = big_blind
         self.pot = 0
         self.current_bet = 0
+        self.current_stage = "pre-flop"
+        self.bets = []
+        self.current_player = None
+        self.session_manager = SessionManager()
 
     def play_round(self) -> None:
         self._reset_round()
-
-        #1. Pobiera blindy
         self._post_blinds()
-
-        #2. Rozdaje karty
         self.deck.shuffle()
         self.deck.deal(self.players, 5)
 
-        #3. Rundę zakładów
         self.betting_round()
 
-        #4. Wymianę kart
         active_players = [p for p in self.players if not p.folded]
         if len(active_players) > 1:
+            self.current_stage = "exchange"
             self._handle_card_exchange(active_players)
 
-        #5. Showdown i przyznanie puli
+        self.current_stage = "showdown"
         winner = self.showdown()
         pot_amount = self.pot
         current_stack = winner.get_stack_amount()
         winner.set_stack_amount(current_stack + pot_amount)
         self.pot = 0
         print(f"Zwycięzca: {winner.get_name()}, otrzymuje {pot_amount} żetonów")
+
+        session = {
+            "game_id": None,
+            "players": self.players,
+            "deck": self.deck,
+            "stage": self.current_stage,
+            "bets": self.bets,
+            "pot": pot_amount,
+            "current_player": None,
+            "completed_round": True
+        }
+        self.session_manager.save_session(session)
+        self.bets.clear()
 
     def _reset_round(self):
         for player in self.players:
@@ -51,6 +65,8 @@ class GameEngine:
         self.deck = Deck()
         self.pot = 0
         self.current_bet = 0
+        self.bets = []
+        self.current_stage = "pre-flop"
 
     def _post_blinds(self):
         blinds = []
@@ -85,11 +101,20 @@ class GameEngine:
                 pos = (start_pos + i) % len(active)
                 player = active[pos]
                 current_bet = self.current_bet - player.current_bet
+                self.current_player = player
 
                 try:
                     action = self.prompt_bet(player, current_bet)
                     player.last_action = action
                     print(f"{player.get_name()} wybrał akcję {action}")
+
+                    self.bets.append({
+                        "stage": self.current_stage,
+                        "player_id": self.players.index(player) + 1,
+                        "action": action,
+                        "amount": current_bet if action in ['call', 'raise'] else 0,
+                        "pot": self.pot
+                    })
 
                     if action == 'fold':
                         player.folded = True
@@ -133,7 +158,6 @@ class GameEngine:
                     print("Runda zakładów zakończona")
                     return
 
-            # Reset for next cycle if a raise occurred
             if not cycle_complete:
                 continue
 
@@ -151,7 +175,6 @@ class GameEngine:
                 continue
 
             return amount
-
 
     def prompt_bet(self, player: Player, current_bet: int) -> str:
         if player.is_human():
@@ -197,8 +220,7 @@ class GameEngine:
                 print(f"\n{player.get_name()} Twoje karty:", player.cards_to_str())
 
                 if player.is_human():
-                    indices = list(
-                        map(int, input("Podaj indeksy kart do wymiany (0-4, oddzielone spacjami): ").split()))
+                    indices = list(map(int, input("Podaj indeksy kart do wymiany (0-4, oddzielone spacjami): ").split()))
                 else:
                     hand_ranks = [card.rank for card in player.get_player_hand()]
                     numeric_ranks = ranks_to_int(hand_ranks)
@@ -246,5 +268,4 @@ class GameEngine:
 
         rankings.sort(reverse=True, key=lambda x: (x[0], x[1]))
 
-        winning_player = rankings[0][2]
-        return winning_player
+        return rankings[0][2]

@@ -1,18 +1,30 @@
 from src.deck import Deck
 from src.player import Player
 from src.game_engine import GameEngine
+from src.fileops.session_manager import SessionManager
 
 
 def main():
-    deck = Deck()
-    players = [
-        Player(100, "Gracz 1", True),
-        Player(100, "Gracz pryncypał", True),
-        #Player(1000, "Gracz 2", True)
-        #Player(1000, "Bot Operator")
-    ]
+    session_manager = SessionManager()
+    config = session_manager.load_config()
 
-    game = GameEngine(players, deck)
+    print("Załadowana konfiguracja:")
+    print(config)
+
+    load_existing = input("Czy wczytać zapis gry? (y/n): ").lower()
+    if load_existing == "y":
+        game_id = input("Podaj ID gry do wczytania: ").strip()
+        session = session_manager.load_session(game_id)
+        players = session["players"]
+        deck = session["deck"]
+    else:
+        deck = Deck()
+        players = [
+            Player(config["starting_stack"], "Gracz 1", True),
+            Player(config["starting_stack"], "Gracz pryncypał", True),
+        ]
+
+    game = GameEngine(players, deck, config["small_blind"], config["big_blind"])
 
     round_count = 1
 
@@ -37,7 +49,7 @@ def main():
             players.remove(player)
 
         if len(players) < 2:
-            print("\nNie wystarczająca ilośc graczy, gra się zakończyła.")
+            print("\nNie wystarczająca ilość graczy, gra się zakończyła.")
             break
 
         round_count += 1
