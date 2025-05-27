@@ -1,10 +1,10 @@
 from typing import List
 import random
-from card import Card
-from deck import Deck
-from player import Player
-from exceptions import InvalidActionError, InsufficientFundsError, GameError
-import utils
+from src.card import Card
+from src.deck import Deck
+from src.player import Player
+from src.exceptions import InvalidActionError, InsufficientFundsError, GameError
+from src.utils import evaluate_hand, ranks_to_int, hand_rank_names
 
 
 class GameEngine:
@@ -201,7 +201,7 @@ class GameEngine:
                         map(int, input("Podaj indeksy kart do wymiany (0-4, oddzielone spacjami): ").split()))
                 else:
                     hand_ranks = [card.rank for card in player.get_player_hand()]
-                    numeric_ranks = utils.ranks_to_int(hand_ranks)
+                    numeric_ranks = ranks_to_int(hand_ranks)
                     ex_cards = [i for i, rank in enumerate(numeric_ranks) if rank < 8]
                     indices = random.sample(ex_cards, min(len(ex_cards), random.randint(0, 2)))
 
@@ -236,8 +236,8 @@ class GameEngine:
 
         for player in active_players:
             hand = player.get_player_hand()
-            rank_value, tiebreakers = utils.evaluate_hand(hand)
-            hand_name = utils.hand_rank_names[rank_value]
+            rank_value, tiebreakers = evaluate_hand(hand)
+            hand_name = hand_rank_names[rank_value]
             card_strs = [str(card) for card in hand]
 
             print(f"{player.get_name():<15} | {hand_name:<17} | {' '.join(card_strs)}")

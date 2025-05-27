@@ -1,0 +1,77 @@
+{
+  "game_id": 3,
+  "players": [
+    {
+      "name": "Alice",
+      "stack": 1000,
+      "hand": [
+        {
+          "rank": "A",
+          "suit": "s"
+        },
+        {
+          "rank": "K",
+          "suit": "d"
+        },
+        {
+          "rank": "5",
+          "suit": "h"
+        },
+        {
+          "rank": "2",
+          "suit": "c"
+        },
+        {
+          "rank": "9",
+          "suit": "s"
+        }
+      ],
+      "is_human": true,
+      "folded": false,
+      "current_bet": 0,
+      "last_action": null
+    },
+    {
+      "name": "BotBob",
+      "stack": 800,
+      "hand": [
+        {
+          "rank": "J",
+          "suit": "h"
+        },
+        {
+          "rank": "Q",
+          "suit": "h"
+        },
+        {
+          "rank": "7",
+          "suit": "c"
+        },
+        {
+          "rank": "8",
+          "suit": "s"
+        },
+        {
+          "rank": "3",
+          "suit": "d"
+        }
+      ],
+      "is_human": false,
+      "folded": false,
+      "current_bet": 0,
+      "last_action": null
+    }
+  ],
+  "deck": {
+    "cards": [
+      {
+        "rank": "4",
+        "suit": "h"
+      },
+      {
+        "rank": "6",
+        "suit": "c"
+      }
+    ]
+  }
+}

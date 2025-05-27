@@ -1,4 +1,5 @@
-from exceptions import InsufficientFundsError, InvalidHandError
+from .exceptions import InsufficientFundsError, InvalidHandError
+from .card import Card
 
 class Player:
     def __init__(self, money, name="", is_human = False):
@@ -68,3 +69,23 @@ class Player:
             if card in seen_cards:
                 raise InvalidHandError(f"Duplikat karty: {card}")
             seen_cards.add(card)
+
+    def to_dict(self):
+        return {
+            "name": self.__name_,
+            "stack": self.__stack_,
+            "hand": [card.to_dict() for card in self.__hand_],
+            "is_human": self.__is_human_,
+            "folded": self.folded,
+            "current_bet": self.current_bet,
+            "last_action": self.last_action
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        player = cls(data["stack"], data["name"], data["is_human"])
+        player.set_hand([Card.from_dict(card) for card in data["hand"]])
+        player.folded = data.get("folded", False)
+        player.current_bet = data.get("current_bet", 0)
+        player.last_action = data.get("last_action", None)
+        return player

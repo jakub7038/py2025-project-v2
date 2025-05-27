@@ -28,3 +28,14 @@ class Deck():
 
     def discard_to_bottom(self, card):
         self.cards.append(card)
+
+    def to_dict(self):
+        return {
+            "cards": [card.to_dict() for card in self.cards]
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        deck = cls()
+        deck.cards = [Card.from_dict(c) for c in data["cards"]]
+        return deck

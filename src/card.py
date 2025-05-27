@@ -10,3 +10,10 @@ class Card:
 
     def __str__(self):
         return f"{self.rank} {Card.unicode_dict[self.suit]}"
+
+    def to_dict(self):
+        return {"rank": self.rank, "suit": self.suit}
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(data["rank"], data["suit"])

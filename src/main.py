@@ -1,13 +1,13 @@
-from deck import Deck
-from player import Player
-from game_engine import GameEngine
+from src.deck import Deck
+from src.player import Player
+from src.game_engine import GameEngine
 
 
 def main():
     deck = Deck()
     players = [
-        Player(1000, "Gracz 1", True),
-        Player(1000, "Gracz pryncypał", True),
+        Player(100, "Gracz 1", True),
+        Player(100, "Gracz pryncypał", True),
         #Player(1000, "Gracz 2", True)
         #Player(1000, "Bot Operator")
     ]

@@ -1,5 +1,5 @@
 from typing import List, Tuple
-from card import Card
+from .card import Card
 
 def ranks_to_int(ranks_list):
     rank_map = {
