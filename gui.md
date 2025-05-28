@@ -25,7 +25,7 @@ Pięć miejsc na karty użytkownika:
 
 Przyciski dostosowane do fazy rozgrywki:
 
-- Zakładania: „Check/Call”, „Raise” (z polem na kwotę), „Fold”.
+- Zakładów: „Check/Call”, „Raise” (z polem na kwotę), „Fold”.
 - Wymiany: „Wymień zaznaczone karty” (widoczny tylko w fazie draw).
 
 ## 5. Informacje o stanie gry
