@@ -1,0 +1,237 @@
+{
+  "game_id": 1,
+  "players": [
+    {
+      "name": "Gracz 1",
+      "stack": 50,
+      "hand": [
+        {
+          "rank": "9",
+          "suit": "h"
+        },
+        {
+          "rank": "7",
+          "suit": "s"
+        },
+        {
+          "rank": "Q",
+          "suit": "c"
+        },
+        {
+          "rank": "4",
+          "suit": "d"
+        },
+        {
+          "rank": "6",
+          "suit": "h"
+        }
+      ],
+      "is_human": true,
+      "folded": false,
+      "current_bet": 50,
+      "last_action": "call"
+    },
+    {
+      "name": "Gracz pryncypa\u0142",
+      "stack": 150,
+      "hand": [
+        {
+          "rank": "A",
+          "suit": "h"
+        },
+        {
+          "rank": "J",
+          "suit": "c"
+        },
+        {
+          "rank": "9",
+          "suit": "c"
+        },
+        {
+          "rank": "3",
+          "suit": "h"
+        },
+        {
+          "rank": "7",
+          "suit": "d"
+        }
+      ],
+      "is_human": true,
+      "folded": false,
+      "current_bet": 50,
+      "last_action": "check"
+    }
+  ],
+  "deck": {
+    "cards": [
+      {
+        "rank": "K",
+        "suit": "d"
+      },
+      {
+        "rank": "9",
+        "suit": "s"
+      },
+      {
+        "rank": "8",
+        "suit": "h"
+      },
+      {
+        "rank": "7",
+        "suit": "h"
+      },
+      {
+        "rank": "3",
+        "suit": "s"
+      },
+      {
+        "rank": "5",
+        "suit": "h"
+      },
+      {
+        "rank": "7",
+        "suit": "c"
+      },
+      {
+        "rank": "A",
+        "suit": "c"
+      },
+      {
+        "rank": "Q",
+        "suit": "s"
+      },
+      {
+        "rank": "10",
+        "suit": "h"
+      },
+      {
+        "rank": "A",
+        "suit": "d"
+      },
+      {
+        "rank": "10",
+        "suit": "c"
+      },
+      {
+        "rank": "2",
+        "suit": "d"
+      },
+      {
+        "rank": "5",
+        "suit": "c"
+      },
+      {
+        "rank": "6",
+        "suit": "s"
+      },
+      {
+        "rank": "10",
+        "suit": "s"
+      },
+      {
+        "rank": "A",
+        "suit": "s"
+      },
+      {
+        "rank": "5",
+        "suit": "d"
+      },
+      {
+        "rank": "Q",
+        "suit": "d"
+      },
+      {
+        "rank": "2",
+        "suit": "s"
+      },
+      {
+        "rank": "5",
+        "suit": "s"
+      },
+      {
+        "rank": "2",
+        "suit": "h"
+      },
+      {
+        "rank": "9",
+        "suit": "d"
+      },
+      {
+        "rank": "K",
+        "suit": "s"
+      },
+      {
+        "rank": "8",
+        "suit": "s"
+      },
+      {
+        "rank": "4",
+        "suit": "c"
+      },
+      {
+        "rank": "K",
+        "suit": "c"
+      },
+      {
+        "rank": "6",
+        "suit": "d"
+      },
+      {
+        "rank": "J",
+        "suit": "d"
+      },
+      {
+        "rank": "3",
+        "suit": "d"
+      },
+      {
+        "rank": "3",
+        "suit": "c"
+      },
+      {
+        "rank": "K",
+        "suit": "h"
+      },
+      {
+        "rank": "6",
+        "suit": "c"
+      },
+      {
+        "rank": "Q",
+        "suit": "h"
+      },
+      {
+        "rank": "2",
+        "suit": "c"
+      },
+      {
+        "rank": "8",
+        "suit": "c"
+      },
+      {
+        "rank": "4",
+        "suit": "s"
+      },
+      {
+        "rank": "10",
+        "suit": "d"
+      },
+      {
+        "rank": "J",
+        "suit": "s"
+      },
+      {
+        "rank": "4",
+        "suit": "h"
+      },
+      {
+        "rank": "J",
+        "suit": "h"
+      },
+      {
+        "rank": "8",
+        "suit": "d"
+      }
+    ]
+  }
+}
