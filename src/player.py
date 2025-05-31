@@ -1,5 +1,5 @@
-from .exceptions import InsufficientFundsError, InvalidHandError
-from .card import Card
+from src.exceptions import InsufficientFundsError, InvalidHandError
+from src.card import Card
 
 class Player:
     def __init__(self, money, name="", is_human = False):

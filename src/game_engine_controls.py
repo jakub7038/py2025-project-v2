@@ -9,7 +9,7 @@ class GuiGameEngine(GameEngine):
         self.gui = gui_handler
         self.pending_action = None
         self.raise_amount = 0
-        self.pending_exchange_indices = []
+        self.pending_exchange_indices = None
         self._exchange_players = []
         self._exchange_index = 0
 
@@ -62,12 +62,13 @@ class GuiGameEngine(GameEngine):
         player = self._exchange_players[self._exchange_index]
         if player.is_human():
             self.gui.request_card_exchange(player)
-            while self.pending_exchange_indices == []:
+            self.pending_exchange_indices = None  # Reset to None before waiting
+            while self.pending_exchange_indices is None:  # Changed condition
                 self.gui.process_events()
 
+            # Allow empty list (no cards to exchange)
             new_hand = self.exchange_cards(player.get_hand(), self.pending_exchange_indices)
             player.set_hand(new_hand)
-            self.pending_exchange_indices = []
             self.gui.show_cards(player)
 
             self._exchange_index += 1
