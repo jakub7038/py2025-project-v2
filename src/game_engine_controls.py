@@ -28,7 +28,7 @@ class GuiGameEngine(GameEngine):
             self.current_stage = "exchange"
             self._handle_card_exchange(active_players)
         else:
-            self._resume_after_exchange()  # fallback for fold-only round
+            self._resume_after_exchange()
 
     def prompt_bet(self, player, current_bet):
         if player.is_human():
@@ -42,12 +42,16 @@ class GuiGameEngine(GameEngine):
             return super().prompt_bet(player, current_bet)
 
     def _get_raise_amount(self, current_bet):
-        self.gui.request_raise_amount(current_bet)
-        while self.raise_amount == 0:
-            self.gui.process_events()
-        amt = self.raise_amount
-        self.raise_amount = 0
-        return amt
+        if self.current_player and self.current_player.is_human():
+            while self.raise_amount == 0:
+                self.gui.process_events()
+
+            amt = self.raise_amount
+            self.raise_amount = 0
+            return amt
+        else:
+            # For bots, simulate a raise with a reasonable amount
+            return random.randint(self.big_blind, self.big_blind * 3)
 
     def _handle_card_exchange(self, players):
         self._exchange_players = players
@@ -63,7 +67,7 @@ class GuiGameEngine(GameEngine):
         if player.is_human():
             self.gui.request_card_exchange(player)
             self.pending_exchange_indices = None  # Reset to None before waiting
-            while self.pending_exchange_indices is None:  # Changed condition
+            while self.pending_exchange_indices is None:  # Wait until set to a list (even empty)
                 self.gui.process_events()
 
             # Allow empty list (no cards to exchange)
