@@ -6,25 +6,14 @@ from src.fileops.session_manager import SessionManager
 
 def main():
     session_manager = SessionManager()
-    config = session_manager.load_config()
 
-    print("Załadowana konfiguracja:")
-    print(config)
+    deck = Deck()
+    players = [
+        Player(1000, "Gracz 1", True),
+        Player(1000, "Gracz pryncypał", False),
+    ]
 
-    load_existing = input("Czy wczytać zapis gry? (y/n): ").lower()
-    if load_existing == "y":
-        game_id = input("Podaj ID gry do wczytania: ").strip()
-        session = session_manager.load_session(game_id)
-        players = session["players"]
-        deck = session["deck"]
-    else:
-        deck = Deck()
-        players = [
-            Player(config["starting_stack"], "Gracz 1", True),
-            Player(config["starting_stack"], "Gracz pryncypał", True),
-        ]
-
-    game = GameEngine(players, deck, config["small_blind"], config["big_blind"])
+    game = GameEngine(players, deck, 25, 50)
 
     round_count = 1
 

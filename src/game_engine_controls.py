@@ -1,70 +1,133 @@
 from src.game_engine import GameEngine
-from src.player import Player
+from src.utils import ranks_to_int, evaluate_hand, hand_rank_names
 import random
-from typing import List
-from src.utils import ranks_to_int
 
-class DerivedGameEngine(GameEngine):
-    def __init__(self, players, deck, gui_handler, small_blind=25, big_blind=50):
+
+class GuiGameEngine(GameEngine):
+    def __init__(self, players, deck, small_blind, big_blind, gui_handler):
         super().__init__(players, deck, small_blind, big_blind)
         self.gui = gui_handler
+        self.pending_action = None
+        self.raise_amount = 0
+        self.pending_exchange_indices = []
+        self._exchange_players = []
+        self._exchange_index = 0
 
-    def prompt_bet(self, player: Player, current_bet: int) -> str:
-        if not player.is_human():
-            return self._bot_decide_action(player, current_bet)
+    def play_round(self):
+        self._reset_round()
+        self._post_blinds()
+        self.deck.shuffle()
+        self.deck.deal(self.players, 5)
 
-        self.gui.show_current_bet(self.current_bet, current_bet)
-        self.gui.show_player_info(player.get_name(), player.get_stack_amount(), player.cards_to_str())
-        action = self.gui.prompt_action(
-            options=["fold", "check", "call", "raise"],
-            can_check=(current_bet == 0),
-            can_call=(current_bet > 0),
-            can_raise=True
-        )
-        if action == "raise":
-            min_raise = max(self.big_blind, current_bet + 1)
-            raise_amt = self.gui.prompt_raise_amount(min_amount=min_raise)
-            self.gui.last_raise_amount = raise_amt
-        return action
+        self.betting_round()
+
+        self.gui.disable_betting_controls()
+
+        active_players = [p for p in self.players if not p.folded]
+        if len(active_players) > 1:
+            self.current_stage = "exchange"
+            self._handle_card_exchange(active_players)
+        else:
+            self._resume_after_exchange()  # fallback for fold-only round
+
+    def prompt_bet(self, player, current_bet):
+        if player.is_human():
+            self.gui.request_player_action(player, current_bet)
+            while self.pending_action is None:
+                self.gui.process_events()
+            action = self.pending_action
+            self.pending_action = None
+            return action
+        else:
+            return super().prompt_bet(player, current_bet)
 
     def _get_raise_amount(self, current_bet):
-        amount = getattr(self.gui, 'last_raise_amount', None)
-        if amount is None:
-            raise ValueError("No raise amount provided by GUI handler.")
-        return amount
+        self.gui.request_raise_amount(current_bet)
+        while self.raise_amount == 0:
+            self.gui.process_events()
+        amt = self.raise_amount
+        self.raise_amount = 0
+        return amt
 
-    def _handle_card_exchange(self, players: List[Player]):
-        for player in players:
-            try:
-                if not player.is_human():
-                    hand_ranks = [card.rank for card in player.get_player_hand()]
-                    numeric_ranks = ranks_to_int(hand_ranks)
-                    ex_cards = [i for i, rank in enumerate(numeric_ranks) if rank < 8]
-                    indices = random.sample(ex_cards, min(len(ex_cards), random.randint(0, 2)))
-                else:
-                    self.gui.show_player_cards(player.get_name(), player.cards_to_str())
-                    indices = self.gui.prompt_exchange_indices(max_indices=3)
+    def _handle_card_exchange(self, players):
+        self._exchange_players = players
+        self._exchange_index = 0
+        self._wait_for_exchange()
 
-                    if not isinstance(indices, list):
-                        raise ValueError("Oczekiwano listy indeksów")
-                    hand_size = len(player.get_hand())
-                    unique = set()
-                    valid_indices = []
-                    for idx in indices:
-                        if not isinstance(idx, int):
-                            raise ValueError(f"Nieprawidłowy indeks: {idx}")
-                        if idx < 0 or idx >= hand_size:
-                            raise ValueError(f"Indeks poza zakresem: {idx}")
-                        if idx in unique:
-                            continue
-                        unique.add(idx)
-                        valid_indices.append(idx)
-                    indices = valid_indices
+    def _wait_for_exchange(self):
+        if self._exchange_index >= len(self._exchange_players):
+            self._resume_after_exchange()
+            return
 
-                exchanged = self.exchange_cards(player.get_hand(), indices)
-                player.set_hand(exchanged)
+        player = self._exchange_players[self._exchange_index]
+        if player.is_human():
+            self.gui.request_card_exchange(player)
+            while self.pending_exchange_indices == []:
+                self.gui.process_events()
 
-            except Exception as e:
-                if player.is_human():
-                    self.gui.show_error(f"Niedozwolona wymiana: {e}. Nie wymieniono kart.")
-                continue
+            new_hand = self.exchange_cards(player.get_hand(), self.pending_exchange_indices)
+            player.set_hand(new_hand)
+            self.pending_exchange_indices = []
+            self.gui.show_cards(player)
+
+            self._exchange_index += 1
+            self._wait_for_exchange()
+        else:
+            hand_ranks = [card.rank for card in player.get_player_hand()]
+            numeric_ranks = ranks_to_int(hand_ranks)
+            ex_cards = [i for i, rank in enumerate(numeric_ranks) if rank < 8]
+            indices = random.sample(ex_cards, min(len(ex_cards), random.randint(0, 2)))
+            exchanged = self.exchange_cards(player.get_hand(), indices)
+            player.set_hand(exchanged)
+            self._exchange_index += 1
+            self._wait_for_exchange()
+
+    def _resume_after_exchange(self):
+        self.current_stage = "showdown"
+        active_players = [p for p in self.players if not p.folded]
+
+        if not active_players:
+            raise Exception("Brak aktywnych graczy w showdown")
+
+        # Build showdown result string
+        rankings = []
+        result_lines = []
+        for player in active_players:
+            hand = player.get_player_hand()
+            rank_value, tiebreakers = evaluate_hand(hand)
+            hand_name = hand_rank_names[rank_value]
+            card_strs = [str(card) for card in hand]
+            result_lines.append(f"{player.get_name():<10} | {hand_name:<15} | {' '.join(card_strs)}")
+            rankings.append((rank_value, tiebreakers, player))
+
+        rankings.sort(reverse=True, key=lambda x: (x[0], x[1]))
+        winner = rankings[0][2]
+        pot_amount = self.pot
+
+        winner.set_stack_amount(winner.get_stack_amount() + pot_amount)
+        self.pot = 0
+
+        result_lines.append(f"\n🏆 Zwycięzca: {winner.get_name()} otrzymuje {pot_amount} żetonów!")
+        self.gui.show_showdown_results("\n".join(result_lines))
+
+        session = {
+            "game_id": None,
+            "players": self.players,
+            "deck": self.deck,
+            "stage": self.current_stage,
+            "bets": self.bets,
+            "pot": pot_amount,
+            "current_player": None,
+            "completed_round": True
+        }
+        self.session_manager.save_session(session)
+        self.bets.clear()
+
+    def set_exchange_indices(self, indices):
+        self.pending_exchange_indices = indices
+
+    def set_player_action(self, action):
+        self.pending_action = action
+
+    def set_raise_amount(self, amount):
+        self.raise_amount = amount
