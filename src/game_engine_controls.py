@@ -19,7 +19,6 @@ class GuiGameEngine(GameEngine):
             self._reset_round()
             self._post_blinds()
 
-            # Update GUI after blinds
             self.gui.update_all_displays()
             self.gui.add_message(f"Blinds posted: Small ${self.small_blind}, Big ${self.big_blind}")
 
@@ -292,13 +291,13 @@ class GuiGameEngine(GameEngine):
         pot_amount = self.pot
         self._award_pot_to_winner(winner)
 
-        # Show results
         result_lines.append(f"\n🏆 Winner: {winner.get_name()} wins ${pot_amount}!")
         self.gui.show_showdown_results("\n".join(result_lines))
 
     def _award_pot_to_winner(self, winner):
         pot_amount = self.pot
         winner.set_stack_amount(winner.get_stack_amount() + pot_amount)
+        self.gui.enable_new_round()
 
         for player in self.players:
             player.current_bet = 0

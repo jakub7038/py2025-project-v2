@@ -2,11 +2,13 @@ import sys
 import os
 import math
 import time
+import json
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QLabel,
     QVBoxLayout, QWidget, QHBoxLayout, QTextEdit,
     QInputDialog, QFrame, QSizePolicy, QGridLayout,
-    QMessageBox, QProgressBar, QGraphicsView, QGraphicsScene, QGraphicsObject
+    QMessageBox, QProgressBar, QGraphicsView, QGraphicsScene, QGraphicsObject,
+    QMenu, QDialog, QFormLayout, QSpinBox, QDialogButtonBox, QComboBox
 )
 from PyQt5.QtCore import Qt, QRectF, QPointF, QPropertyAnimation, QTimer
 from PyQt5.QtGui import QPixmap, QPainter, QBrush, QColor, QFont
@@ -14,6 +16,18 @@ from PyQt5.QtGui import QPixmap, QPainter, QBrush, QColor, QFont
 from src.deck import Deck
 from src.player import Player
 from src.game_engine_controls import GuiGameEngine
+
+
+def load_config():
+    config_path = os.path.join(os.path.dirname(__file__), "../config.json")
+    with open(config_path, "r") as f:
+        return json.load(f)
+
+
+def save_config(config):
+    config_path = os.path.join(os.path.dirname(__file__), "../config.json")
+    with open(config_path, "w") as f:
+        json.dump(config, f, indent=4)
 
 
 def load_card_pixmap(card):
@@ -28,9 +42,20 @@ def load_card_pixmap(card):
     elif rank == '1':
         rank = 'A'
 
-    filename = f"{rank}{suit}.png"
-    cards_dir = os.path.join(os.path.dirname(__file__), "cards", "Rust")
-    path = os.path.join(cards_dir, filename)
+    filename_png = f"{rank}{suit}.png"
+    filename_jpg = f"{rank}{suit}.jpg"
+
+    config = load_config()
+    skin = config.get("skin", "Rust")
+    cards_dir = os.path.join(os.path.dirname(__file__), "cards", skin)
+
+    path_png = os.path.join(cards_dir, filename_png)
+    path_jpg = os.path.join(cards_dir, filename_jpg)
+
+    if os.path.exists(path_png):
+        path = path_png
+    else:
+        path = path_jpg
 
     pixmap = QPixmap(path)
     if pixmap.isNull():
@@ -66,6 +91,7 @@ def load_card_pixmap(card):
         pixmap = pixmap.scaled(100, 150, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
     return pixmap
+
 
 
 class CardItem(QGraphicsObject):
@@ -108,7 +134,7 @@ class CardItem(QGraphicsObject):
 
         if not self.shifted:
             end = QPointF(self.original_pos.x() + dx, self.original_pos.y() + dy)
-            if len(self.parent.selected_cards) < 3:  # Max 3 cards
+            if len(self.parent.selected_cards) < 3:
                 self.parent.selected_cards.append(self.index)
             else:
                 self.parent.add_message("You can only exchange up to 3 cards!")
@@ -136,14 +162,8 @@ class PokerGUI(QMainWindow):
         self.setWindowTitle("Five Card Draw Poker")
         self.setGeometry(100, 100, 1200, 800)
 
-        self.deck = Deck()
-        self.players = [
-            Player(1000, "You", True),
-            Player(1000, "Bot 1", False),
-            Player(1000, "Bot 2", False),
-            Player(1000, "Bot 3", False)  # Added another bot for testing
-        ]
-        self.engine = GuiGameEngine(self.players, self.deck, 25, 50, gui_handler=self)
+        self.config = load_config()
+        self.setup_game_from_config()
 
         self.selected_cards = []
         self.card_items = []
@@ -156,7 +176,28 @@ class PokerGUI(QMainWindow):
 
         QTimer.singleShot(500, self.start_new_round)
 
+    def setup_game_from_config(self):
+        self.deck = Deck()
+        self.players = [Player(self.config["starting_chips"], "You", True)]
+        for i in range(self.config["num_bots"]):
+            self.players.append(Player(self.config["starting_chips"], f"Bot {i+1}", False))
+
+        self.engine = GuiGameEngine(
+            self.players, self.deck,
+            self.config["small_blind"], self.config["big_blind"],
+            gui_handler=self
+        )
+
     def setup_ui(self):
+        menu_bar = self.menuBar()
+        game_menu = menu_bar.addMenu("Game")
+
+        settings_action = game_menu.addAction("Settings")
+        settings_action.triggered.connect(self.open_settings_dialog)
+
+        new_game_action = game_menu.addAction("New Game")
+        new_game_action.triggered.connect(self.restart_game_from_config)
+
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
@@ -169,15 +210,12 @@ class PokerGUI(QMainWindow):
         player_info_layout = QHBoxLayout()
 
         self.create_human_player_info(player_info_layout)
-
         self.create_bot_players_info(player_info_layout)
 
         main_layout.addLayout(player_info_layout)
 
         self.create_card_scene(main_layout)
-
         self.create_game_controls(main_layout)
-
         self.create_messages_area(main_layout)
 
     def create_game_info_section(self, parent_layout):
@@ -263,7 +301,7 @@ class PokerGUI(QMainWindow):
 
         self.scene = QGraphicsScene(self)
         self.scene.setSceneRect(QRectF(0, 0, 800, 250))
-        self.scene.setBackgroundBrush(QBrush(QColor(0, 100, 0)))  # Green felt background
+        self.scene.setBackgroundBrush(QBrush(QColor(0, 100, 0)))
 
         self.view = QGraphicsView(self.scene, self)
         self.view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -335,6 +373,7 @@ class PokerGUI(QMainWindow):
 
         self.btn_exchange.setVisible(False)
         self.btn_keep_all.setVisible(False)
+        self.btn_new_round.setEnabled(False)
 
     def create_messages_area(self, parent_layout):
         self.messages = QTextEdit()
@@ -427,9 +466,7 @@ class PokerGUI(QMainWindow):
                 if player.folded:
                     status += " (Folded)"
                 if player == self.engine.current_player:
-                    label.setStyleSheet("QLabel { color: red; font-weight: bold; margin: 5px; }")
-                else:
-                    label.setStyleSheet("QLabel { color: black; margin: 5px; }")
+                    label.setStyleSheet("QLabel { color: black; font-weight: bold; margin: 5px; }")
 
                 label.setText(status)
                 bot_index += 1
@@ -513,8 +550,11 @@ class PokerGUI(QMainWindow):
             f"Game Over!\n{winner.get_name()} wins with ${winner.get_stack_amount()}!"
         )
         self.game_over = True
+        self.btn_new_round.setText("Start New Game")
+        self.btn_new_round.setEnabled(True)
 
-    # Button handlers
+        QTimer.singleShot(0, self.enable_new_round)
+
     def handle_check_call(self):
         player = next(p for p in self.players if p.is_human())
         to_call = self.engine.current_bet - player.current_bet
@@ -542,10 +582,12 @@ class PokerGUI(QMainWindow):
         self.selected_cards = []
 
     def start_new_round(self):
+        self.btn_new_round.setText("Start New Round")
+        self.btn_new_round.setEnabled(False)
+
         if self.game_over:
-            # Reset game
             for player in self.players:
-                player.set_stack_amount(1000)
+                player.set_stack_amount(self.config["starting_chips"])
             self.game_over = False
 
         self.messages.clear()
@@ -555,19 +597,18 @@ class PokerGUI(QMainWindow):
         self.last_click_time = 0
 
         self.clear_card_scene()
+        self.btn_new_round.setEnabled(False)
 
         QTimer.singleShot(100, self.engine.play_round)
 
     def enable_new_round(self):
         self.btn_new_round.setEnabled(True)
 
-    # Engine interface methods
     def set_player_action(self, action):
         self.engine.set_player_action(action)
         self.add_message(f"You chose: {action}")
         self.show_betting_controls(False)
 
-    # UI helper methods
     def show_betting_controls(self, visible):
         self.btn_fold.setVisible(visible)
         self.btn_check_call.setVisible(visible)
@@ -576,6 +617,79 @@ class PokerGUI(QMainWindow):
     def show_exchange_controls(self, visible):
         self.btn_exchange.setVisible(visible)
         self.btn_keep_all.setVisible(visible)
+
+    def open_settings_dialog(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Game Settings")
+
+        layout = QFormLayout(dialog)
+
+        # --- existing spinboxes ---
+        bot_spin = QSpinBox()
+        bot_spin.setRange(0, 3)
+        bot_spin.setValue(self.config["num_bots"])
+
+        small_blind_spin = QSpinBox()
+        small_blind_spin.setRange(1, 1000)
+        small_blind_spin.setValue(self.config["small_blind"])
+
+        big_blind_spin = QSpinBox()
+        big_blind_spin.setRange(1, 5000)
+        big_blind_spin.setValue(self.config["big_blind"])
+
+        chips_spin = QSpinBox()
+        chips_spin.setRange(100, 10000)
+        chips_spin.setValue(self.config["starting_chips"])
+
+        layout.addRow("Number of Bots:", bot_spin)
+        layout.addRow("Small Blind:", small_blind_spin)
+        layout.addRow("Big Blind:", big_blind_spin)
+        layout.addRow("Starting Chips:", chips_spin)
+
+        # --- NEW: Skin dropdown ---
+        skin_combo = QComboBox()
+        skin_combo.addItems(["Rust", "spunchbob"])
+        # Initialize to whatever is currently in config (default "Rust" if missing)
+        skin_combo.setCurrentText(self.config.get("skin", "Rust"))
+        layout.addRow("Card Skin:", skin_combo)
+
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        layout.addWidget(button_box)
+
+        def on_accept():
+            sb = small_blind_spin.value()
+            bb = big_blind_spin.value()
+            if bb <= sb:
+                QMessageBox.warning(self, "Validation Error", "Big Blind must be greater than Small Blind.")
+                return
+
+            # Save spins
+            self.config["num_bots"] = bot_spin.value()
+            self.config["small_blind"] = sb
+            self.config["big_blind"] = bb
+            self.config["starting_chips"] = chips_spin.value()
+
+            # Save skin choice
+            self.config["skin"] = skin_combo.currentText()
+
+            save_config(self.config)
+            dialog.accept()
+
+        button_box.accepted.connect(on_accept)
+        button_box.rejected.connect(dialog.reject)
+
+        dialog.exec_()
+
+    def restart_game_from_config(self):
+        self.clear_card_scene()
+        self.messages.clear()
+        self.btn_new_round.setEnabled(False)
+
+        self.setup_game_from_config()
+        self.update_all_displays()
+        self.game_over = False
+
+        QTimer.singleShot(200, self.start_new_round)
 
 
 def main():

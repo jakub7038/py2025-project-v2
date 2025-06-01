@@ -1,0 +1,7 @@
+{
+    "num_bots": 1,
+    "small_blind": 25,
+    "big_blind": 50,
+    "starting_chips": 250,
+    "skin": "Rust"
+}
